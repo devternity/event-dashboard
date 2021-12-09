@@ -34,7 +34,7 @@ rm -rf config/*.json
 $SSH sudo apt-get -y install apt-transport-https ca-certificates curl software-properties-common
 $SSH sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /tmp/docker.key
 $SSH sudo apt-key add /tmp/docker.key
-$SSH sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+$SSH sudo add-apt-repository '"deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"'
 $SSH sudo apt-get -y install docker-ce
 
 # Create or renew certificate
