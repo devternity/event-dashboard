@@ -38,7 +38,7 @@ $SSH sudo add-apt-repository '"deb [arch=amd64] https://download.docker.com/linu
 $SSH sudo apt-get -y install docker-ce
 
 # Install ruby
-$SSH sudo apt-get -y install ruby 
+$SSH sudo apt-get -y install ruby ruby-dev
 $SSH sudo gem install bundler
 $SSH sudo gem install smashing
 $SSH sudo gem install rspec
