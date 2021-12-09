@@ -44,7 +44,7 @@ module Devternity
   
   def type2room(type, title)  
     if title.include? "Lunch"
-      return 'HALLWAYS'
+      return 'SLACK BREAK'
     elsif title.include? "Beer"
       return ' '
     elsif title.include? "Opening"
@@ -52,9 +52,9 @@ module Devternity
     elsif title.include? "Final"
       return 'TRACK '
     elsif type == "start"
-      return 'HALLWAYS'
+      return 'SLACK BREAK'
     elsif type == "break"
-      return 'HALLWAYS'
+      return 'SLACK BREAK'
     end
     return 'TRACK '
   end
