@@ -40,6 +40,8 @@ $SSH sudo apt-get -y install docker-ce
 # Install ruby
 $SSH sudo apt-get -y install ruby 
 $SSH sudo gem install bundler
+$SSH sudo gem install smashing
+$SSH sudo gem install rspec
 
 # Create or renew certificate
 decrypt ./cloudflare.ini
