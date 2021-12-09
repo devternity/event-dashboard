@@ -1,4 +1,4 @@
+*.sh text eol=lf
 *.enc binary
 *.ini filter=crypt diff=crypt
 connect.sh filter=crypt diff=crypt
-

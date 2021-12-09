@@ -37,6 +37,10 @@ $SSH sudo apt-key add /tmp/docker.key
 $SSH sudo add-apt-repository '"deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"'
 $SSH sudo apt-get -y install docker-ce
 
+# Install ruby
+$SSH sudo apt-get -y install ruby 
+$SSH sudo gem install bundler
+
 # Create or renew certificate
 decrypt ./cloudflare.ini
 $SSH sudo systemctl stop nginx || true
