@@ -7,18 +7,12 @@ require 'active_support/time'
 require 'uri'
 require 'yaml'
 require 'date'
-require 'honeycomb-beeline'
 
 ###########################################################################
 # Job's body.
 ###########################################################################
 
 $global_config = YAML.load_file('./config/integrations.yml') || {}
-
-Honeycomb.configure do |config|
-  config.write_key = $global_config['honeycomb_key'] 
-  config.dataset = $global_config['honeycomb_dataset'] || 'devternity'
-end
 
 ###########################################################################
 # Job's module.

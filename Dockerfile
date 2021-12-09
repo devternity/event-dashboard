@@ -1,12 +1,13 @@
-FROM ubuntu:16.04
+FROM ubuntu:20.04
 
-RUN apt-get -y -q update && \
-    apt-get -y -q upgrade
+ENV DEBIAN_FRONTEND=noninteractive
 
+RUN apt-get -y -q update 
 RUN apt-get -y -q install ruby ruby-dev nodejs g++ bundler sqlite3 libsqlite3-dev
 
 RUN mkdir -p /opt/smashing && \
     cd /opt/smashing && \
+    gem install bundler && \
     gem install smashing && \
     gem install rspec
 
@@ -17,4 +18,11 @@ WORKDIR /app
 
 EXPOSE 3030
 
-CMD ["bash", "-c", "bundle install --path /tmp/bundle && smashing start -P /var/run/thin.pid"]
+COPY ./Gemfile /app/Gemfile
+COPY ./Gemfile.lock /app/Gemfile.lock
+
+RUN /usr/local/bin/bundle install
+
+RUN ls -la /app
+
+CMD ["bash", "-l", "-c", "/usr/local/bin/smashing start -P /var/run/thin.pid"]

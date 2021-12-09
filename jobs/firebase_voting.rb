@@ -10,7 +10,6 @@ require 'firebase'
 require 'net/http'
 require 'open-uri'
 require 'uri'
-require 'honeycomb-beeline'
 
 ###########################################################################
 # Load configuration parameters.
@@ -21,11 +20,6 @@ $firebase_json = File.open('./config/firebase-voting.json') { |file| file.read }
 $firebase_config = JSON.parse($firebase_json)
 $base_url = "https://#{$firebase_config['project_id']}.firebaseio.com/"
 $firebase_client = Firebase::Client.new($base_url, $firebase_json)
-
-Honeycomb.configure do |config|
-  config.write_key = $global_config['honeycomb_key'] 
-  config.dataset = $global_config['honeycomb_dataset'] || 'devternity'
-end
 
 def now
   Time.now.in_time_zone('Europe/Riga')

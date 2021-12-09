@@ -7,7 +7,6 @@ require 'sqlite3'
 require 'active_record'
 require 'htmlentities'
 require 'fastimage'
-require 'honeycomb-beeline'
 
 ###########################################################################
 # Load configuration parameters.
@@ -19,14 +18,6 @@ filter_config = YAML.load_file('./config/filters.yml') || {}
 search_query = URI::encode(global_config['twitter_query'] || "#latcraft")
 accounts = global_config['twitter_accounts'] || [ '@latcraft' ]
 db_path = global_config['twitter_db_path'] || '/var/lib/sqlite/twitter.db'
-
-Honeycomb.configure do |config|
-  config.write_key = global_config['honeycomb_key'] 
-  config.dataset = global_config['honeycomb_dataset'] || 'devternity'
-  config.notification_events = %w[
-    sql.active_record
-  ].freeze  
-end
 
 ###########################################################################
 # Configure Twitter client.
@@ -133,169 +124,165 @@ end
 # Save Twitter query result in the database and send it to dashboard.
 ###########################################################################
 SCHEDULER.every '2m', :first_in => 0 do |job|
-  Honeycomb.start_span(name: 'twitter_db_query') do |span|
-    begin    
+  
+  begin    
 
-      Tweet.establish_connection(:adapter => 'sqlite3', :database => db_path)
-      Media.establish_connection(:adapter => 'sqlite3', :database => db_path)
+    Tweet.establish_connection(:adapter => 'sqlite3', :database => db_path)
+    Media.establish_connection(:adapter => 'sqlite3', :database => db_path)
 
-      # Perform Twitter search for most recent tweets.
-      tweets = twitter.search("#{search_query}", { :result_type => 'recent', :count => 100 })
+    # Perform Twitter search for most recent tweets.
+    tweets = twitter.search("#{search_query}", { :result_type => 'recent', :count => 100 })
 
-      # Save all tweets in the database for later query.
-      if tweets
-        tweets.each do |tweet|
-          if !Tweet.exists?(TWEET_ID: tweet.id)
-            t            = Tweet.new
-            t.TWEET_ID   = tweet.id
-            t.CREATED_AT = tweet.created_at.in_time_zone('Europe/Riga').iso8601
-            t.CONTENT    = tweet.text
-            t.AVATAR     = "#{tweet.user.profile_image_url_https}" 
-            t.NAME       = tweet.user.name
-            t.save
-            if tweet.media? 
-              tweet.media.each_with_index do |media, index|
-                media_id       = "#{tweet.id}_#{index}"
-                if !Media.exists?(MEDIA_ID: media_id)
-                  m             = Media.new
-                  m.MEDIA_ID    = media_id
-                  m.CREATED_AT  = tweet.created_at.in_time_zone('Europe/Riga').iso8601
-                  m.SHORT_URI   = media.uri
-                  m.URI         = media.media_uri
-                  media_size    = FastImage.size("#{media.media_uri}")
-                  if !media_size.nil?
-                    m.WIDTH     = media_size[0]
-                    m.HEIGHT    = media_size[1]
-                  end
-                  m.save
+    # Save all tweets in the database for later query.
+    if tweets
+      tweets.each do |tweet|
+        if !Tweet.exists?(TWEET_ID: tweet.id)
+          t            = Tweet.new
+          t.TWEET_ID   = tweet.id
+          t.CREATED_AT = tweet.created_at.in_time_zone('Europe/Riga').iso8601
+          t.CONTENT    = tweet.text
+          t.AVATAR     = "#{tweet.user.profile_image_url_https}" 
+          t.NAME       = tweet.user.name
+          t.save
+          if tweet.media? 
+            tweet.media.each_with_index do |media, index|
+              media_id       = "#{tweet.id}_#{index}"
+              if !Media.exists?(MEDIA_ID: media_id)
+                m             = Media.new
+                m.MEDIA_ID    = media_id
+                m.CREATED_AT  = tweet.created_at.in_time_zone('Europe/Riga').iso8601
+                m.SHORT_URI   = media.uri
+                m.URI         = media.media_uri
+                media_size    = FastImage.size("#{media.media_uri}")
+                if !media_size.nil?
+                  m.WIDTH     = media_size[0]
+                  m.HEIGHT    = media_size[1]
                 end
+                m.save
               end
             end
           end
         end
       end
-
-      # Send most recent 18 tweets (excluding retweets) to dashboard.
-      if tweets
-        tweets = tweets
-          .select { |tweet| !tweet.text.start_with?('RT') }
-          .select { |tweet| !filter_config['twitter_exclude_terms'].any? { |term| tweet.user.name.downcase.include?(term) } }
-          .select { |tweet| !filter_config['twitter_exclude_terms'].any? { |term| get_tweet_text(tweet).include?(term) } } 
-          .take(18).map do |tweet|
-          { 
-            name:      tweet.user.name, 
-            avatar:    "#{tweet.user.profile_image_url_https}",
-            time:      tweet.created_at.in_time_zone('Europe/Riga').strftime("%m-%d %H:%M:%S"), 
-            body:      get_tweet_text(tweet), 
-            image:     tweet.media? ? tweet.media.first.media_uri : nil
-          }
-        end
-        send_event('twitter_mentions', tweets: tweets.sort { |a, b| b[:time] <=> a[:time] })
-      end
-
-    rescue Twitter::Error => e
-      puts "\e[33mError message: #{e.message}\e[0m"
-    ensure
-      Tweet.remove_connection()
-      Media.remove_connection()
     end
 
+    # Send most recent 18 tweets (excluding retweets) to dashboard.
+    if tweets
+      tweets = tweets
+        .select { |tweet| !tweet.text.start_with?('RT') }
+        .select { |tweet| !filter_config['twitter_exclude_terms'].any? { |term| tweet.user.name.downcase.include?(term) } }
+        .select { |tweet| !filter_config['twitter_exclude_terms'].any? { |term| get_tweet_text(tweet).include?(term) } } 
+        .take(18).map do |tweet|
+        { 
+          name:      tweet.user.name, 
+          avatar:    "#{tweet.user.profile_image_url_https}",
+          time:      tweet.created_at.in_time_zone('Europe/Riga').strftime("%m-%d %H:%M:%S"), 
+          body:      get_tweet_text(tweet), 
+          image:     tweet.media? ? tweet.media.first.media_uri : nil
+        }
+      end
+      send_event('twitter_mentions', tweets: tweets.sort { |a, b| b[:time] <=> a[:time] })
+    end
+
+  rescue Twitter::Error => e
+    puts "\e[33mError message: #{e.message}\e[0m"
+  ensure
+    Tweet.remove_connection()
+    Media.remove_connection()
   end
+  
 end
 
 
 # Save Twitter followers in the database.
 ###########################################################################
 SCHEDULER.every '30m', :first_in => 0 do |job|
-  Honeycomb.start_span(name: 'twitter_save_followers') do |span|
-    begin
+  
+  begin
 
-      Follower.establish_connection(:adapter => 'sqlite3', :database => db_path)
+    Follower.establish_connection(:adapter => 'sqlite3', :database => db_path)
 
-      # Query Twitter for followers.
-      accounts.each do |account|
-        followers = twitter.followers(account, { :skip_status => false, :include_user_entities => true })
-        if followers
-          # Save all followers in the database for later query.
-          followers.each do |follower|
-            if !Follower.exists?(FOLLOWER_ID: follower.id)
-              f             = Follower.new
-              f.FOLLOWER_ID = follower.id
-              f.CREATED_AT  = follower.created_at.in_time_zone('Europe/Riga').iso8601
-              f.FOLLOWED_AT = Time.now.in_time_zone('Europe/Riga').iso8601
-              f.AVATAR      = "#{follower.profile_image_url_https}" 
-              f.NAME        = follower.name
-              f.TYPE        = "twitter#{account}"
-              f.STATUS      = 'active'
-              f.save
-            end
-          end 
-        end
+    # Query Twitter for followers.
+    accounts.each do |account|
+      followers = twitter.followers(account, { :skip_status => false, :include_user_entities => true })
+      if followers
+        # Save all followers in the database for later query.
+        followers.each do |follower|
+          if !Follower.exists?(FOLLOWER_ID: follower.id)
+            f             = Follower.new
+            f.FOLLOWER_ID = follower.id
+            f.CREATED_AT  = follower.created_at.in_time_zone('Europe/Riga').iso8601
+            f.FOLLOWED_AT = Time.now.in_time_zone('Europe/Riga').iso8601
+            f.AVATAR      = "#{follower.profile_image_url_https}" 
+            f.NAME        = follower.name
+            f.TYPE        = "twitter#{account}"
+            f.STATUS      = 'active'
+            f.save
+          end
+        end 
       end
-    
-    rescue Twitter::Error => e
-      puts "\e[33mError message: #{e.message}\e[0m"
-    ensure 
-      Follower.remove_connection() 
     end
-
+  
+  rescue Twitter::Error => e
+    puts "\e[33mError message: #{e.message}\e[0m"
+  ensure 
+    Follower.remove_connection() 
   end
+  
 end
 
 # Select Twitter statistics from the database.
 ###########################################################################
 SCHEDULER.every '1m', :first_in => 0 do |job|
-  Honeycomb.start_span(name: 'twitter_stats') do |span|
-    begin
+  
+  begin
 
-      # Select number of tweets posted per hour for last 10 hours and send it to dashboard.
-      activity = []
-      i = 10
-      db.execute( "select count(*), strftime('%Y-%m-%d %H:00', created_at) from tweets group by 2 order by 2 desc limit 10;" ) do |row|
-        activity << { 
-          x: i, 
-          y: row[0] 
-        }
-        i -= 1
-      end
-      activity = activity.sort { |a, b| a[:x] <=> b[:x] }
-      if !activity.empty?
-        send_event('twitter_activity', { graphtype: 'bar', points: activity })
-      end
-
-    rescue Exception => e
-      puts "\e[33mError message: #{e.message}\e[0m"
+    # Select number of tweets posted per hour for last 10 hours and send it to dashboard.
+    activity = []
+    i = 10
+    db.execute( "select count(*), strftime('%Y-%m-%d %H:00', created_at) from tweets group by 2 order by 2 desc limit 10;" ) do |row|
+      activity << { 
+        x: i, 
+        y: row[0] 
+      }
+      i -= 1
+    end
+    activity = activity.sort { |a, b| a[:x] <=> b[:x] }
+    if !activity.empty?
+      send_event('twitter_activity', { graphtype: 'bar', points: activity })
     end
 
+  rescue Exception => e
+    puts "\e[33mError message: #{e.message}\e[0m"
   end
+  
 end
 
 # Select top Twitter posters from the database.
 ###########################################################################
 SCHEDULER.every '1m', :first_in => 0 do |job|
-  Honeycomb.start_span(name: 'twitter_top') do |span|
-    begin
+  
+  begin
 
-      # Select top users that posted tweets within last 3 hours and send it to dashboard.
-      top_users = []
-      query_time = Time.now.in_time_zone('Europe/Riga').advance(:hours => -12).iso8601
-      db.execute( "select count(*), name, avatar from tweets where datetime(created_at) > datetime(?) and content not like 'RT%' group by 2, 3 order by 1 desc, 2 asc;", [query_time] ) do |row|
-        top_users << { 
-          name: row[1], 
-          avatar: row[2],
-          tweet_count: row[0] 
-        }
-      end
-      exclude_users = filter_config['twitter_exclude_heroes'] || []
-      top_users = top_users.select { |user| !(exclude_users.include? user['name']) } 
-      if !top_users.empty?
-        send_event('twitter_top_users', { users: top_users.take(6) })
-      end
-
-    rescue Exception => e
-      puts "\e[33mError message: #{e.message}\e[0m"
+    # Select top users that posted tweets within last 3 hours and send it to dashboard.
+    top_users = []
+    query_time = Time.now.in_time_zone('Europe/Riga').advance(:hours => -12).iso8601
+    db.execute( "select count(*), name, avatar from tweets where datetime(created_at) > datetime(?) and content not like 'RT%' group by 2, 3 order by 1 desc, 2 asc;", [query_time] ) do |row|
+      top_users << { 
+        name: row[1], 
+        avatar: row[2],
+        tweet_count: row[0] 
+      }
+    end
+    exclude_users = filter_config['twitter_exclude_heroes'] || []
+    top_users = top_users.select { |user| !(exclude_users.include? user['name']) } 
+    if !top_users.empty?
+      send_event('twitter_top_users', { users: top_users.take(6) })
     end
 
+  rescue Exception => e
+    puts "\e[33mError message: #{e.message}\e[0m"
   end
+
 end
 
