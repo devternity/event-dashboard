@@ -35,10 +35,11 @@ $SSH sudo apt-get -y install apt-transport-https ca-certificates curl software-p
 $SSH sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /tmp/docker.key
 $SSH sudo apt-key add /tmp/docker.key
 $SSH sudo add-apt-repository '"deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"'
+$SSH sudo apt-get -y -q update 
 $SSH sudo apt-get -y install docker-ce
 
 # Install ruby
-$SSH sudo apt-get -y install ruby ruby-dev
+$SSH sudo apt-get -y install ruby ruby-dev nodejs g++ bundler sqlite3 libsqlite3-dev
 $SSH sudo gem install bundler
 $SSH sudo gem install smashing
 $SSH sudo gem install rspec
