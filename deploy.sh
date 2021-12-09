@@ -30,6 +30,9 @@ rm -rf dashboard.tgz
 rm -rf config/integrations.yml
 rm -rf config/*.json
 
+# Install docker
+$SSH sudo apt-get -y install docker-ce
+
 # Create or renew certificate
 decrypt ./cloudflare.ini
 $SSH sudo systemctl stop nginx || true
@@ -71,5 +74,3 @@ $SSH <<EOF
   echo ">>>> Checking status"
   sudo systemctl -q is-active smashing
 EOF
-
-
