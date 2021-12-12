@@ -63,7 +63,7 @@ module Devternity
     current_time = Time.now.in_time_zone('Europe/Riga')
     current_min  = current_time.hour * 60 + current_time.min
     schedule     = JSON.parse(open(global_config['devternity_data_file']) { |f| f.read }).first['program'].find { |e| e['event'] == 'keynotes' }['schedule']
-    time_slots   = schedule.map do |time_slot|
+    time_slots   = schedule.select { |time_slot| !time_slot.has_key?('plumber') }.map do |time_slot|
       { 
         :time      => time_slot['time'], 
         :time_code => time_slot['time'].split(':').join('').to_i, 
